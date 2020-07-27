@@ -1,0 +1,175 @@
+---
+- hosts: localhost
+  remote_user: ubuntu
+  become: yes
+  gather_facts: no
+  
+  pre_tasks:  #install all this on the new server:
+
+    - name: Update repositories cache
+      become: yes
+      apt:
+        update_cache: yes    
+
+    - name: Update nodejs
+      retries: 5
+      apt:
+        name: nodejs 
+        update_cache: yes
+
+    - name: mkdir node-red certs
+      shell: mkdir -p /home/ubuntu/.node-red/certs
+
+    - name: 'install npm'
+      retries: 5
+      become: yes
+      shell: 'apt-get -y install npm'
+
+    - name: 'install git-core'
+      become: yes
+      shell: 'apt-get -y install git-core'
+
+    - name: 'install python3-pip'
+      become: yes
+      shell: 'apt-get -y install python3-pip'
+
+    - name: 'install p7zip-full'
+      become: yes
+      shell: 'apt-get -y install p7zip-full'
+
+    - name: 'install unzip'
+      become: yes
+      shell: 'apt-get -y install unzip'
+
+    - name: Install node-red
+      become: yes
+      npm:
+        name: node-red
+        global: yes
+        unsafe_perm: yes
+          
+    - name: Download scripts
+      become: yes
+      get_url:
+        owner: root
+        mode: '755'
+        url: "https://raw.githubusercontent.com/node-red/linux-installers/master/resources/{{ item }}"
+        dest: "/usr/bin/{{ item|basename }}"
+      with_items:
+        - node-red-start
+        - node-red-stop
+        - node-red-restart
+        - node-red-reload
+        - node-red-log
+        
+    - name: check if nodered.service exists
+      stat: 
+        path: /lib/systemd/system/nodered.service
+      register: nodered_service
+      
+    - name: Download nodered.service
+      become: yes
+      get_url:
+        owner: root
+        mode: '644'
+        force: no
+        url: "https://raw.githubusercontent.com/node-red/linux-installers/master/resources/nodered.service"
+        dest: "/lib/systemd/system/nodered.service"
+      when: nodered_service.stat.exists == False
+      
+    - name: Configure user in nodered.service
+      become: yes
+      block:
+        - name: user
+          lineinfile:
+            path: /lib/systemd/system/nodered.service
+            regexp: 'User='
+            line: "User=ubuntu"
+        
+        - name: group
+          lineinfile:
+            path: /lib/systemd/system/nodered.service
+            regexp: 'Group='
+            line: "Group=ubuntu"
+        
+        - name: home
+          lineinfile:
+            path: /lib/systemd/system/nodered.service
+            regexp: 'WorkingDirectory='
+            line: "WorkingDirectory=/home/ubuntu/"
+
+        - name: Reload systemd
+          become: yes
+          systemd:
+            daemon_reload: yes
+
+    - name: Get Flows File
+      shell: wget https://raw.githubusercontent.com/surfd4wg/radarblip/master/flows.json -O /home/ubuntu/.node-red/flows.json
+
+    - name: Get Flows File
+      shell: wget https://raw.githubusercontent.com/surfd4wg/radarblip/master/settings.js -O /home/ubuntu/.node-red/settings.js
+      ignore_errors: yes
+
+    - name: Get Package_json_lock
+      shell: wget https://raw.githubusercontent.com/mrSidX/radar-blip-supplicant/master/package.json -O /home/ubuntu/.node-red/package-lock.json
+
+    - name: Allow port 1880
+      shell: sudo ufw allow 1880
+
+    - name: Allow port 18800
+      shell: sudo ufw allow 18800
+
+    - name: mkdir ga-gen
+      shell: mkdir /home/ubuntu/ga-gen
+
+    - name: Get Private Key
+      shell: wget https://raw.githubusercontent.com/surfd4wg/radarblip/master/privkey.pem -O /home/ubuntu/.node-red/certs/privkey.pem
+
+    - name: Get FullChain
+      shell: wget https://raw.githubusercontent.com/surfd4wg/radarblip/master/fullchain.pem -O /home/ubuntu/.node-red/certs/fullchain.pem
+
+    - name: Get package_json
+      shell: wget https://raw.githubusercontent.com/surfd4wg/radarblip/master/package.json -O /home/ubuntu/.node-red/package.json
+
+    - name: Get node_modules1
+      shell: wget https://github.com/surfd4wg/radarblip/raw/master/node_modules.zip.001 -O /home/ubuntu/.node-red/node_modules.zip.001
+
+    - name: Get node_modules2
+      shell: wget https://github.com/surfd4wg/radarblip/raw/master/node_modules.zip.002 -O /home/ubuntu/.node-red/node_modules.zip.002
+
+    - name: Get node_modules3
+      shell: wget https://github.com/surfd4wg/radarblip/raw/master/node_modules.zip.003 -O /home/ubuntu/.node-red/node_modules.zip.003
+
+    - name: Get node_modules4
+      shell: wget https://github.com/surfd4wg/radarblip/raw/master/node_modules.zip.004 -O /home/ubuntu/.node-red/node_modules.zip.004
+
+    - name: task name
+      shell:
+        cmd: 7za x /home/ubuntu/.node-red/node_modules.zip.001 
+        chdir: /home/ubuntu/.node-red
+
+    - name: Remove node_modules zips
+      shell: rm /home/ubuntu/.node-red/node_modules.zip.00?
+
+    - name: wget ga-gen
+      shell: wget https://github.com/surfd4wg/radarblip/raw/master/ga-gen.zip -O /home/ubuntu/ga-gen/ga-gen.zip
+
+    - name: unzip ga-gen
+      shell: unzip /home/ubuntu/ga-gen/ga-gen.zip -d /home/ubuntu/
+
+    - name: remove ga-gen zip
+      shell: rm /home/ubuntu/ga-gen/ga-gen.zip
+
+    - name: Install mongodb via apt
+      apt:
+        name: mongodb
+
+    - name: Change node-red user
+      become: yes
+      shell: chown ubuntu:ubuntu /home/ubuntu/.node-red
+
+    - name: Start Node-Red
+      become_user: ubuntu
+      shell: node-red-start &
+
+    ###---
