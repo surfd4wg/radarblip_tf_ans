@@ -20,10 +20,10 @@ variable "ssh_user" {
 
 variable "access_key" {
     description = "Access Key to AWS account"
-    default = "AKIA4X3YHT4RZYVDZ6XB"
+    default = "xxxx"
 }
 
 variable "secret_key" {
     description = "Access Secret Key to AWS account"
-    default = "RFU2EgPUKo896hV6/g3+kwsleu2rUuZfJgxExbvh"
+    default = "xxxxx"
 }
